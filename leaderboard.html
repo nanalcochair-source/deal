@@ -196,7 +196,7 @@ async function fetchLeaderboard() {
     // Top 10 — most gifts, then fastest time
     const { data: top, error } = await sb
       .from('game_results')
-      .select('name, gifts, time_sec')
+      .select('name, phone, gifts, time_sec')
       .order('gifts', { ascending: false })
       .order('time_sec', { ascending: true })
       .limit(10);
@@ -242,7 +242,7 @@ function renderRows(top) {
       <td class="rank-cell">
         <span class="rank-badge rank-${rank <= 3 ? rank : 'other'}">${medals[i] || rank}</span>
       </td>
-      <td class="name-cell ${isTop3 ? 'top3-name' : ''}">${esc(r.name)}</td>
+      <td class="name-cell ${isTop3 ? 'top3-name' : ''}">${esc(r.name)}<br><span style="font-size:.75rem;color:#6666aa;font-weight:400">${esc(r.phone)}</span></td>
       <td class="gifts-cell">
         <div class="gift-count">${r.gifts} / ${MAX_GIFTS} 🎁</div>
         <div class="gift-bar-bg"><div class="gift-bar-fill" style="width:${pct}%"></div></div>
