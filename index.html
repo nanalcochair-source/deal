@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Box Blitz – Win a Prize!</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<style> 
+<style>
   :root {
     --gold: #f5c518;
     --gold-dark: #c9a000;
@@ -336,9 +336,6 @@
     <label for="inp-name">Your Full Name</label>
     <input type="text" id="inp-name" placeholder="e.g. Jane Smith" autocomplete="name" />
 
-    <label for="inp-phone">Phone Number</label>
-    <input type="tel" id="inp-phone" placeholder="e.g. 555-123-4567" autocomplete="tel" />
-
     <button class="btn" id="btn-start" onclick="startGame()">Let's Play! 🎯</button>
   </div>
 
@@ -402,6 +399,20 @@
 
     <div id="player-rank" style="display:none; text-align:center; margin-top:16px; padding:12px; background:#1a1a35; border-radius:10px; color:var(--gold); font-weight:700; font-size:.95rem;"></div>
 
+    <!-- Player ID — screenshot to claim prize -->
+    <div id="player-id-card" style="
+      margin-top: 20px;
+      background: linear-gradient(135deg, #1a0a3a, #0a1a3a);
+      border: 2px dashed #7c3aed;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    ">
+      <div style="font-size:.8rem; color:#8888bb; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px;">Your Player ID</div>
+      <div id="player-id-display" style="font-size:2.4rem; font-weight:900; letter-spacing:6px; color:#f5c518; font-family:monospace;"></div>
+      <div style="font-size:.78rem; color:#6666aa; margin-top:10px;">📸 Screenshot this screen to claim your prize</div>
+    </div>
+
     <button class="btn" onclick="resetGame()" style="margin-top:20px; background: linear-gradient(135deg,#2a2a5a,#1a1a40); color:#aaa; font-weight:600;">
       ↩ Play Again
     </button>
@@ -453,7 +464,7 @@ const TIME_LIMIT    = 30;   // seconds
 //  STATE
 // ═══════════════════════════════════════════════
 let playerName  = '';
-let playerPhone = '';
+let playerID    = '';
 let giftBoxes   = new Set();
 let picksUsed   = 0;
 let giftsFound  = 0;
@@ -474,12 +485,17 @@ function showScreen(id) {
 // ═══════════════════════════════════════════════
 //  REGISTRATION → START
 // ═══════════════════════════════════════════════
-function startGame() {
-  playerName  = document.getElementById('inp-name').value.trim();
-  playerPhone = document.getElementById('inp-phone').value.trim();
+function generatePlayerID() {
+  // Format: BB-XXXXXX (6 random digits, padded)
+  const num = Math.floor(100000 + Math.random() * 900000);
+  return 'BB-' + num;
+}
 
+function startGame() {
+  playerName = document.getElementById('inp-name').value.trim();
   if (!playerName) { alert('Please enter your name.'); return; }
-  if (!playerPhone) { alert('Please enter your phone number.'); return; }
+
+  playerID = generatePlayerID();
 
   // Randomise gift boxes for this player
   giftBoxes = new Set();
@@ -592,7 +608,7 @@ function endGame(reason) {
 
   const resultData = {
     name:      playerName,
-    phone:     playerPhone,
+    phone:     playerID,
     gifts:     giftsFound,
     picks:     picksUsed,
     timeSec:   elapsedSec,
@@ -637,6 +653,9 @@ function showResult(data) {
   setTimeout(() => {
     document.getElementById('score-bar').style.width = (data.gifts / GIFT_COUNT * 100) + '%';
   }, 300);
+
+  // Show player ID
+  document.getElementById('player-id-display').textContent = playerID;
 
   // Gift dot visualisation
   const dots = document.getElementById('gift-dots');
