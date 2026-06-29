@@ -208,16 +208,30 @@ async function fetchLeaderboard() {
 
     if (error) { console.warn('Supabase error:', error.message); return; }
 
-    // Stats
-    const { data: allRows } = await sb
+    // Total count — uses server-side count, no row limit
+    const { count: total } = await sb
       .from('game_results')
-      .select('gifts');
+      .select('*', { count: 'exact', head: true });
 
-    const total    = allRows?.length || 0;
+    // Avg gifts — fetch in batches to bypass 1000-row limit
+    let allGifts = [], from = 0, batchSize = 1000;
+    while (true) {
+      const { data: batch } = await sb
+        .from('game_results')
+        .select('gifts')
+        .range(from, from + batchSize - 1);
+      if (!batch || batch.length === 0) break;
+      allGifts = allGifts.concat(batch);
+      if (batch.length < batchSize) break;
+      from += batchSize;
+    }
+
     const topScore = top?.[0]?.gifts ?? null;
-    const avgGifts = total ? (allRows.reduce((s, r) => s + r.gifts, 0) / total).toFixed(1) : null;
+    const avgGifts = allGifts.length
+      ? (allGifts.reduce((s, r) => s + r.gifts, 0) / allGifts.length).toFixed(1)
+      : null;
 
-    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-total').textContent = total || 0;
     document.getElementById('stat-top').textContent   = topScore !== null ? `${topScore} 🎁` : '—';
     document.getElementById('stat-avg').textContent   = avgGifts ? `${avgGifts} 🎁` : '—';
 
