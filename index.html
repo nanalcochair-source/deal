@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Box Blitz – Win a Prize!</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --gold: #f5c518;
+    --gold-dark: #c9a000;
+    --bg: #0a0a1a;
+    --card: #12122a;
+    --card2: #1a1a3a;
+    --text: #f0f0ff;
+    --muted: #8888aa;
+    --green: #22c55e;
+    --red: #ef4444;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+
+  /* ── Screens ── */
+  .screen { display: none; width: 100%; max-width: 520px; padding: 24px 16px; animation: fadeIn .4s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Logo / Header ── */
+  .logo {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .logo .emoji { font-size: 56px; display: block; margin-bottom: 8px; }
+  .logo h1 { font-size: 2rem; font-weight: 800; color: var(--gold); letter-spacing: 1px; }
+  .logo p { color: var(--muted); margin-top: 6px; font-size: .95rem; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid #2a2a50;
+    border-radius: var(--radius);
+    padding: 28px 24px;
+  }
+
+  /* ── Form ── */
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; margin-top: 16px; }
+  input[type=text], input[type=tel] {
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--card2);
+    border: 1px solid #2a2a50;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus { border-color: var(--gold); }
+
+  .btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: #000;
+    font-weight: 800;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    letter-spacing: .5px;
+    transition: transform .1s, opacity .2s;
+  }
+  .btn:hover { opacity: .92; transform: scale(1.01); }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* ── Rules ── */
+  .rules {
+    margin-top: 20px;
+    background: var(--card2);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: .88rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .rules strong { color: var(--gold); }
+
+  /* ── Timer bar ── */
+  #timer-wrap {
+    margin-bottom: 16px;
+  }
+  #timer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  #timer-label { font-size: .85rem; color: var(--muted); }
+  #timer-count {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--gold);
+    transition: color .3s;
+    min-width: 48px;
+    text-align: right;
+  }
+  #timer-count.danger { color: var(--red); animation: pulse .5s infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .5; } }
+
+  #timer-bar-bg {
+    height: 8px;
+    background: #2a2a50;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-dark));
+    border-radius: 4px;
+    transition: width .25s linear, background .5s;
+    width: 100%;
+  }
+  #timer-bar.danger { background: linear-gradient(90deg, var(--red), #b91c1c); }
+
+  /* ── Picks counter ── */
+  #picks-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    font-size: .88rem;
+    color: var(--muted);
+  }
+  #picks-row span { font-weight: 700; color: var(--text); }
+
+  /* ── Box Grid ── */
+  #box-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .box {
+    aspect-ratio: 1;
+    background: linear-gradient(145deg, #2a2a5a, #1e1e45);
+    border: 2px solid #3a3a70;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--muted);
+    transition: transform .15s, border-color .15s, background .15s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .box:hover:not(.opened):not(.disabled) {
+    border-color: var(--gold);
+    background: linear-gradient(145deg, #3a3a6a, #2e2e55);
+    transform: scale(1.08);
+    color: var(--gold);
+  }
+
+  .box.opened {
+    cursor: default;
+    border-color: transparent;
+    transform: none;
+  }
+  .box.gift {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    border-color: #a78bfa;
+    animation: giftPop .35s cubic-bezier(.36,.07,.19,.97);
+  }
+  .box.empty {
+    background: linear-gradient(145deg, #1a1a35, #111125);
+    border-color: #222244;
+    opacity: .55;
+  }
+  .box.disabled { cursor: default; opacity: .4; }
+
+  @keyframes giftPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.3) rotate(-4deg); }
+    70%  { transform: scale(.9) rotate(2deg); }
+    100% { transform: scale(1); }
+  }
+
+  .box .box-icon { font-size: 1.1rem; }
+
+  /* ── Result screen ── */
+  .result-banner {
+    text-align: center;
+    padding: 28px 0 20px;
+  }
+  .result-banner .big-emoji { font-size: 64px; }
+  .result-banner h2 { font-size: 1.8rem; font-weight: 800; margin-top: 12px; }
+  .result-banner p { color: var(--muted); margin-top: 6px; }
+
+  .stat-row {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .stat {
+    flex: 1;
+    background: var(--card2);
+    border-radius: 12px;
+    padding: 18px 12px;
+    text-align: center;
+  }
+  .stat .val { font-size: 2rem; font-weight: 800; color: var(--gold); }
+  .stat .lbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+
+  .score-bar-wrap { margin-bottom: 6px; }
+  .score-bar-bg { background: #2a2a50; border-radius: 6px; height: 12px; overflow: hidden; margin-top: 8px; }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #7c3aed, var(--gold));
+    transition: width 1s ease;
+  }
+  .score-label { font-size: .82rem; color: var(--muted); display: flex; justify-content: space-between; }
+
+  /* ── Confetti ── */
+  #confetti-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── Gift dots ── */
+  .gift-dots {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 12px 0;
+  }
+  .dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem;
+  }
+  .dot.gift-dot { background: #7c3aed; }
+  .dot.empty-dot { background: #2a2a50; }
+
+  /* ── Admin hint ── */
+  .admin-hint {
+    text-align: center;
+    margin-top: 20px;
+    font-size: .75rem;
+    color: #33335a;
+  }
+  .admin-hint a { color: #44447a; text-decoration: underline; cursor: pointer; }
+
+  /* ── Admin Panel ── */
+  #admin-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 24px 16px;
+  }
+  .admin-card {
+    max-width: 680px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid #2a2a50;
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .admin-card h2 { color: var(--gold); margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th { text-align: left; padding: 10px 12px; color: var(--muted); border-bottom: 1px solid #2a2a50; font-weight: 600; }
+  td { padding: 10px 12px; border-bottom: 1px solid #1a1a35; }
+  tr:nth-child(even) td { background: #0f0f25; }
+  .winner-row td { color: var(--gold); font-weight: 700; }
+  .close-btn {
+    background: transparent;
+    border: 1px solid #2a2a50;
+    color: var(--muted);
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 16px;
+    font-size: .9rem;
+  }
+  .close-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .trophy { display: inline-block; margin-right: 4px; }
+
+  @media (max-width: 480px) {
+    #box-grid { grid-template-columns: repeat(10, 1fr); gap: 4px; }
+    .box { border-radius: 5px; font-size: .6rem; }
+    .box .box-icon { font-size: .85rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<!-- ══════════════════════════════
+     SCREEN 1 — REGISTRATION
+════════════════════════════════ -->
+<div class="screen active" id="screen-register">
+  <div class="logo">
+    <span class="emoji">🎁</span>
+    <h1>Box Blitz</h1>
+    <p>Open mystery boxes. Find gifts. Win big!</p>
+  </div>
+  <div class="card">
+    <label for="inp-name">Your Full Name</label>
+    <input type="text" id="inp-name" placeholder="e.g. Jane Smith" autocomplete="name" />
+
+    <label for="inp-phone">Phone Number</label>
+    <input type="tel" id="inp-phone" placeholder="e.g. 555-123-4567" autocomplete="tel" />
+
+    <button class="btn" id="btn-start" onclick="startGame()">Let's Play! 🎯</button>
+  </div>
+
+  <div class="rules">
+    <strong>How to play:</strong><br>
+    ✦ 50 mystery boxes are waiting for you<br>
+    ✦ You have <strong>30 seconds</strong> to open up to <strong>10 boxes</strong><br>
+    ✦ Some boxes hide gifts 🎁 — find as many as you can!<br>
+    ✦ The <strong>top 10 players</strong> with the most gifts win
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 2 — GAME
+════════════════════════════════ -->
+<div class="screen" id="screen-game">
+  <div id="timer-wrap">
+    <div id="timer-row">
+      <span id="timer-label">⏱ Time Remaining</span>
+      <span id="timer-count">30</span>
+    </div>
+    <div id="timer-bar-bg"><div id="timer-bar"></div></div>
+  </div>
+
+  <div id="picks-row">
+    <div>Boxes opened: <span id="picks-used">0</span> / 10</div>
+    <div>Gifts found: <span id="gifts-found">0</span> 🎁</div>
+  </div>
+
+  <div id="box-grid"></div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 3 — RESULT
+════════════════════════════════ -->
+<div class="screen" id="screen-result">
+  <div class="result-banner" id="result-banner"></div>
+
+  <div class="card">
+    <div class="stat-row">
+      <div class="stat">
+        <div class="val" id="res-gifts">0</div>
+        <div class="lbl">Gifts Found</div>
+      </div>
+      <div class="stat">
+        <div class="val" id="res-picks">0</div>
+        <div class="lbl">Boxes Opened</div>
+      </div>
+      <div class="stat">
+        <div class="val" id="res-time">0s</div>
+        <div class="lbl">Time Used</div>
+      </div>
+    </div>
+
+    <div class="score-bar-wrap">
+      <div class="score-label"><span>Score</span><span id="res-score-label">0 / 10 gifts</span></div>
+      <div class="score-bar-bg"><div class="score-bar-fill" id="score-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="gift-dots" id="gift-dots"></div>
+
+    <div id="player-rank" style="display:none; text-align:center; margin-top:16px; padding:12px; background:#1a1a35; border-radius:10px; color:var(--gold); font-weight:700; font-size:.95rem;"></div>
+
+    <button class="btn" onclick="resetGame()" style="margin-top:20px; background: linear-gradient(135deg,#2a2a5a,#1a1a40); color:#aaa; font-weight:600;">
+      ↩ Play Again
+    </button>
+  </div>
+
+  <div class="admin-hint">
+    Admin? <a onclick="openAdmin()">View leaderboard</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     ADMIN PANEL (local demo)
+════════════════════════════════ -->
+<div id="admin-panel">
+  <div class="admin-card">
+    <h2>🏆 Leaderboard — Top 10 Winners</h2>
+    <table id="leaderboard-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>Phone</th><th>Gifts</th><th>Time</th><th>Played At</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboard-body"></tbody>
+    </table>
+    <div style="margin-top:20px; font-size:.78rem; color:#555">
+      Results stored locally in this browser. Replace <code>submitResult()</code> in the script to POST to your server.
+    </div>
+    <button class="close-btn" onclick="closeAdmin()">✕ Close</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  ★ SUPABASE CONFIG — fill these in ★
+// ═══════════════════════════════════════════════
+const SUPABASE_URL = 'https://abslfamsjqcllyfcrwoy.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFic2xmYW1zanFjbGx5ZmNyd295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2OTM4MTMsImV4cCI6MjA5ODI2OTgxM30.HSL34zkfPGpphYFT9PPRrCJouWcSrVN1uqtUZAzi-qE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ═══════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════
+const TOTAL_BOXES   = 50;
+const MAX_PICKS     = 10;
+const GIFT_COUNT    = 10;   // boxes with prizes (out of 50)
+const TIME_LIMIT    = 30;   // seconds
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let playerName  = '';
+let playerPhone = '';
+let giftBoxes   = new Set();
+let picksUsed   = 0;
+let giftsFound  = 0;
+let timeLeft    = TIME_LIMIT;
+let gameActive  = false;
+let timerInt    = null;
+let startTime   = null;
+let elapsedSec  = 0;
+
+// ═══════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+//  REGISTRATION → START
+// ═══════════════════════════════════════════════
+function startGame() {
+  playerName  = document.getElementById('inp-name').value.trim();
+  playerPhone = document.getElementById('inp-phone').value.trim();
+
+  if (!playerName) { alert('Please enter your name.'); return; }
+  if (!playerPhone) { alert('Please enter your phone number.'); return; }
+
+  // Randomise gift boxes for this player
+  giftBoxes = new Set();
+  while (giftBoxes.size < GIFT_COUNT) {
+    giftBoxes.add(Math.floor(Math.random() * TOTAL_BOXES) + 1);
+  }
+
+  picksUsed  = 0;
+  giftsFound = 0;
+  timeLeft   = TIME_LIMIT;
+  elapsedSec = 0;
+  gameActive = true;
+  startTime  = Date.now();
+
+  buildGrid();
+  updateHUD();
+  showScreen('screen-game');
+  startTimer();
+}
+
+// ═══════════════════════════════════════════════
+//  BUILD THE BOX GRID
+// ═══════════════════════════════════════════════
+function buildGrid() {
+  const grid = document.getElementById('box-grid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= TOTAL_BOXES; i++) {
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.id = `box-${i}`;
+    box.textContent = i;
+    box.onclick = () => openBox(i, box);
+    grid.appendChild(box);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  OPEN A BOX
+// ═══════════════════════════════════════════════
+function openBox(num, el) {
+  if (!gameActive || el.classList.contains('opened')) return;
+
+  el.classList.add('opened');
+  picksUsed++;
+
+  if (giftBoxes.has(num)) {
+    giftsFound++;
+    el.classList.add('gift');
+    el.innerHTML = '<span class="box-icon">🎁</span>';
+    spawnMiniConfetti();
+  } else {
+    el.classList.add('empty');
+    el.innerHTML = '<span class="box-icon">📦</span>';
+  }
+
+  updateHUD();
+
+  if (picksUsed >= MAX_PICKS) endGame('picks');
+}
+
+// ═══════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════
+function updateHUD() {
+  document.getElementById('picks-used').textContent  = picksUsed;
+  document.getElementById('gifts-found').textContent = giftsFound;
+}
+
+// ═══════════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════════
+function startTimer() {
+  const bar   = document.getElementById('timer-bar');
+  const count = document.getElementById('timer-count');
+
+  bar.style.width = '100%';
+  count.textContent = timeLeft;
+  count.classList.remove('danger');
+  bar.classList.remove('danger');
+
+  timerInt = setInterval(() => {
+    timeLeft--;
+    const pct = (timeLeft / TIME_LIMIT) * 100;
+    bar.style.width = pct + '%';
+    count.textContent = timeLeft;
+
+    if (timeLeft <= 8) {
+      count.classList.add('danger');
+      bar.classList.add('danger');
+    }
+    if (timeLeft <= 0) endGame('time');
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInt);
+  elapsedSec = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+}
+
+// ═══════════════════════════════════════════════
+//  END GAME
+// ═══════════════════════════════════════════════
+function endGame(reason) {
+  if (!gameActive) return;
+  gameActive = false;
+  stopTimer();
+
+  // Disable remaining boxes
+  document.querySelectorAll('.box:not(.opened)').forEach(b => b.classList.add('disabled'));
+
+  const resultData = {
+    name:      playerName,
+    phone:     playerPhone,
+    gifts:     giftsFound,
+    picks:     picksUsed,
+    timeSec:   elapsedSec,
+    playedAt:  new Date().toISOString(),
+    reason:    reason
+  };
+
+  // ── Save locally (demo) ──
+  saveResult(resultData);
+
+  // ── YOUR BACKEND HOOK ──
+  // Replace this function body with your real API call:
+  submitResult(resultData);
+
+  // Show result after short delay
+  setTimeout(() => showResult(resultData), 600);
+}
+
+// ═══════════════════════════════════════════════
+//  RESULT SCREEN
+// ═══════════════════════════════════════════════
+function showResult(data) {
+  showScreen('screen-result');
+
+  const isChamp = data.gifts >= 5;
+  const banner  = document.getElementById('result-banner');
+  banner.innerHTML = `
+    <div class="big-emoji">${data.gifts >= 8 ? '🏆' : data.gifts >= 5 ? '🎉' : data.gifts >= 2 ? '😊' : '😅'}</div>
+    <h2 style="color:${data.gifts >= 5 ? 'var(--gold)' : 'var(--text)'}">${
+      data.gifts >= 8 ? 'Incredible!' :
+      data.gifts >= 5 ? 'Great Job!' :
+      data.gifts >= 2 ? 'Nice Try!' : 'Better Luck Next Time!'
+    }</h2>
+    <p>You found <strong style="color:var(--gold)">${data.gifts} gift${data.gifts !== 1 ? 's' : ''}</strong> out of 10 boxes opened</p>
+  `;
+
+  document.getElementById('res-gifts').textContent       = data.gifts;
+  document.getElementById('res-picks').textContent       = data.picks;
+  document.getElementById('res-time').textContent        = data.timeSec + 's';
+  document.getElementById('res-score-label').textContent = `${data.gifts} / ${GIFT_COUNT} gifts`;
+
+  setTimeout(() => {
+    document.getElementById('score-bar').style.width = (data.gifts / GIFT_COUNT * 100) + '%';
+  }, 300);
+
+  // Gift dot visualisation
+  const dots = document.getElementById('gift-dots');
+  dots.innerHTML = '';
+  for (let i = 0; i < data.picks; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot ' + (i < data.gifts ? 'gift-dot' : 'empty-dot');
+    d.textContent = i < data.gifts ? '🎁' : '📦';
+    dots.appendChild(d);
+  }
+
+  if (data.gifts >= 5) launchConfetti();
+}
+
+// ═══════════════════════════════════════════════
+//  RESET
+// ═══════════════════════════════════════════════
+function resetGame() {
+  document.getElementById('inp-name').value  = '';
+  document.getElementById('inp-phone').value = '';
+  showScreen('screen-register');
+}
+
+// ═══════════════════════════════════════════════
+//  SUBMIT TO SUPABASE
+// ═══════════════════════════════════════════════
+async function submitResult(data) {
+  try {
+    const { error } = await sb.from('game_results').insert([{
+      name:      data.name,
+      phone:     data.phone,
+      gifts:     data.gifts,
+      picks:     data.picks,
+      time_sec:  data.timeSec,
+      played_at: data.playedAt,
+      reason:    data.reason || ''
+    }]);
+    if (error) { console.warn('[BoxBlitz] Supabase error:', error.message); return; }
+
+    // Show live rank to player
+    const { count } = await sb
+      .from('game_results')
+      .select('*', { count: 'exact', head: true })
+      .or(`gifts.gt.${data.gifts},and(gifts.eq.${data.gifts},time_sec.lt.${data.timeSec})`);
+
+    const rank  = (count || 0) + 1;
+    const total = await sb.from('game_results').select('*', { count: 'exact', head: true });
+    const rankEl = document.getElementById('player-rank');
+    if (rankEl) {
+      rankEl.textContent = `🏅 You are ranked #${rank} out of ${total.count} players`;
+      rankEl.style.display = 'block';
+    }
+  } catch (e) {
+    console.warn('[BoxBlitz] Could not submit to Supabase:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  LOCAL STORAGE (single-device demo leaderboard)
+// ═══════════════════════════════════════════════
+function saveResult(data) {
+  let results = JSON.parse(localStorage.getItem('boxblitz_results') || '[]');
+  results.push(data);
+  // Sort: most gifts first, then fastest time
+  results.sort((a,b) => b.gifts - a.gifts || a.timeSec - b.timeSec);
+  localStorage.setItem('boxblitz_results', JSON.stringify(results));
+}
+
+function openAdmin() {
+  const pw = prompt('Admin password:');
+  if (pw !== 'admin123') { alert('Wrong password.'); return; }
+  renderLeaderboard();
+  document.getElementById('admin-panel').style.display = 'block';
+}
+function closeAdmin() { document.getElementById('admin-panel').style.display = 'none'; }
+
+function renderLeaderboard() {
+  const results = JSON.parse(localStorage.getItem('boxblitz_results') || '[]');
+  const top10   = results.slice(0, 10);
+  const tbody   = document.getElementById('leaderboard-body');
+  tbody.innerHTML = '';
+
+  if (!top10.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:24px">No results yet</td></tr>';
+    return;
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  top10.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (i < 10) tr.className = 'winner-row';
+    tr.innerHTML = `
+      <td>${medals[i] || (i+1)}</td>
+      <td>${escHtml(r.name)}</td>
+      <td>${escHtml(r.phone)}</td>
+      <td>${r.gifts} 🎁</td>
+      <td>${r.timeSec}s</td>
+      <td>${new Date(r.playedAt).toLocaleTimeString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ═══════════════════════════════════════════════
+//  CONFETTI
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('confetti-canvas');
+const ctx    = canvas.getContext('2d');
+let particles = [];
+let animFrame = null;
+
+function launchConfetti() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  particles = [];
+  const colors = ['#f5c518','#7c3aed','#22c55e','#ef4444','#3b82f6','#f97316'];
+  for (let i = 0; i < 180; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: -10,
+      r: Math.random() * 6 + 3,
+      d: Math.random() * 180,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tilt: Math.random() * 10 - 5,
+      tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+      tiltAngle: 0,
+      vy: Math.random() * 3 + 2,
+      vx: Math.random() * 3 - 1.5,
+    });
+  }
+  if (animFrame) cancelAnimationFrame(animFrame);
+  drawConfetti();
+}
+
+function spawnMiniConfetti() {
+  if (canvas.width === 0) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  const colors = ['#f5c518','#7c3aed','#22c55e'];
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * (canvas.height * .4),
+      r: Math.random() * 4 + 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tiltAngle: 0,
+      tiltAngleIncremental: 0.08,
+      tilt: 0,
+      vy: Math.random() * 2 + 1,
+      vx: Math.random() * 2 - 1,
+      life: 60
+    });
+  }
+  if (!animFrame) drawConfetti();
+}
+
+function drawConfetti() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => {
+    p.tiltAngle += p.tiltAngleIncremental;
+    p.y += p.vy;
+    p.x += p.vx;
+    p.tilt = Math.sin(p.tiltAngle) * 12;
+    if (p.life !== undefined) p.life--;
+
+    ctx.beginPath();
+    ctx.lineWidth = p.r;
+    ctx.strokeStyle = p.color;
+    ctx.moveTo(p.x + p.tilt + p.r / 3, p.y);
+    ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+    ctx.stroke();
+  });
+
+  particles = particles.filter(p => p.y < canvas.height + 20 && (p.life === undefined || p.life > 0));
+  if (particles.length > 0) {
+    animFrame = requestAnimationFrame(drawConfetti);
+  } else {
+    animFrame = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+window.addEventListener('resize', () => {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
