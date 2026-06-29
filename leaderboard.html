@@ -8,6 +8,10 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  html, body {
+    height: 100%;
+  }
+
   body {
     font-family: 'Segoe UI', sans-serif;
     background: #07071a;
@@ -17,8 +21,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: 32px 24px;
-    overflow: hidden;
+    padding: 24px 24px 32px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* Animated background stars */
@@ -36,12 +41,12 @@
   /* Header */
   .header {
     text-align: center;
-    margin-bottom: 36px;
+    margin-bottom: 16px;
   }
-  .header .crown { font-size: 56px; display: block; animation: bob 2s ease-in-out infinite; }
+  .header .crown { font-size: 40px; display: block; animation: bob 2s ease-in-out infinite; }
   @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
   .header h1 {
-    font-size: 3rem;
+    font-size: 2.2rem;
     font-weight: 900;
     background: linear-gradient(135deg, #f5c518, #ff8c00);
     -webkit-background-clip: text;
@@ -54,22 +59,22 @@
   /* Stats bar */
   .stats-bar {
     display: flex;
-    gap: 16px;
-    margin-bottom: 28px;
+    gap: 12px;
+    margin-bottom: 16px;
     justify-content: center;
   }
   .stat-chip {
     background: #12122a;
     border: 1px solid #2a2a50;
     border-radius: 40px;
-    padding: 10px 24px;
-    font-size: .9rem;
+    padding: 7px 18px;
+    font-size: .85rem;
     color: #8888bb;
   }
   .stat-chip strong { color: #f5c518; margin-left: 4px; }
 
   /* Leaderboard table */
-  .lb-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+  .lb-table { width: 100%; border-collapse: separate; border-spacing: 0 5px; }
 
   .lb-row {
     background: #12122a;
@@ -79,7 +84,7 @@
   .lb-row:hover { transform: scale(1.01); }
 
   .lb-row td {
-    padding: 16px 20px;
+    padding: 10px 16px;
     vertical-align: middle;
   }
   .lb-row td:first-child { border-radius: 14px 0 0 14px; }
