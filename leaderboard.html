@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Box Blitz – Live Leaderboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #07071a;
+    color: #f0f0ff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 32px 24px;
+    overflow: hidden;
+  }
+
+  /* Animated background stars */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, #1a0a3a 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, #0a1a3a 0%, transparent 60%);
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 900px; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .header .crown { font-size: 56px; display: block; animation: bob 2s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .header h1 {
+    font-size: 3rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #f5c518, #ff8c00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+  .header p { color: #6666aa; margin-top: 6px; font-size: 1rem; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    justify-content: center;
+  }
+  .stat-chip {
+    background: #12122a;
+    border: 1px solid #2a2a50;
+    border-radius: 40px;
+    padding: 10px 24px;
+    font-size: .9rem;
+    color: #8888bb;
+  }
+  .stat-chip strong { color: #f5c518; margin-left: 4px; }
+
+  /* Leaderboard table */
+  .lb-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+
+  .lb-row {
+    background: #12122a;
+    border-radius: 14px;
+    transition: transform .2s;
+  }
+  .lb-row:hover { transform: scale(1.01); }
+
+  .lb-row td {
+    padding: 16px 20px;
+    vertical-align: middle;
+  }
+  .lb-row td:first-child { border-radius: 14px 0 0 14px; }
+  .lb-row td:last-child  { border-radius: 0 14px 14px 0; }
+
+  /* Rank */
+  .rank-cell { width: 60px; text-align: center; }
+  .rank-badge {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1.1rem;
+  }
+  .rank-1 { background: linear-gradient(135deg, #f5c518, #c9a000); color: #000; box-shadow: 0 0 16px #f5c51866; }
+  .rank-2 { background: linear-gradient(135deg, #c0c0c0, #909090); color: #000; }
+  .rank-3 { background: linear-gradient(135deg, #cd7f32, #a05a00); color: #fff; }
+  .rank-other { background: #1e1e45; color: #8888bb; }
+
+  /* Name */
+  .name-cell { font-size: 1.15rem; font-weight: 700; }
+  .top3-name { color: #f5c518; }
+
+  /* Gift bar */
+  .gifts-cell { width: 240px; }
+  .gift-count { font-size: 1.3rem; font-weight: 800; color: #f5c518; margin-bottom: 4px; }
+  .gift-bar-bg { background: #1e1e45; border-radius: 4px; height: 6px; overflow: hidden; }
+  .gift-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #7c3aed, #f5c518);
+    transition: width 1s ease;
+  }
+
+  /* Time */
+  .time-cell { text-align: right; color: #6666aa; font-size: .9rem; }
+  .time-cell strong { color: #aaaacc; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #44446a;
+    font-size: 1.1rem;
+  }
+  .empty span { display: block; font-size: 48px; margin-bottom: 12px; }
+
+  /* Pulse dot */
+  .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    margin-right: 6px;
+    animation: livePulse 1.2s infinite;
+    vertical-align: middle;
+  }
+  @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+  /* Row enter animation */
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .lb-row { animation: slideIn .4s ease both; }
+
+  .footer {
+    text-align: center;
+    margin-top: 28px;
+    color: #33335a;
+    font-size: .8rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <span class="crown">🏆</span>
+    <h1>LEADERBOARD</h1>
+    <p><span class="live-dot"></span>Live results · updates every 3 seconds</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-chip">Players: <strong id="stat-total">0</strong></div>
+    <div class="stat-chip">Top Score: <strong id="stat-top">—</strong></div>
+    <div class="stat-chip">Avg Gifts: <strong id="stat-avg">—</strong></div>
+  </div>
+
+  <table class="lb-table" id="lb-table">
+    <tbody id="lb-body">
+      <tr><td colspan="4">
+        <div class="empty"><span>🎁</span>Waiting for players…</div>
+      </td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Box Blitz · Top 10 Winners · Sorted by most gifts, then fastest time</div>
+</div>
+
+<script>
+// ★ Same keys as game.html — fill these in ★
+const SUPABASE_URL = 'https://abslfamsjqcllyfcrwoy.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFic2xmYW1zanFjbGx5ZmNyd295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2OTM4MTMsImV4cCI6MjA5ODI2OTgxM30.HSL34zkfPGpphYFT9PPRrCJouWcSrVN1uqtUZAzi-qE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MAX_GIFTS = 10;
+const medals    = ['🥇','🥈','🥉'];
+
+async function fetchLeaderboard() {
+  try {
+    // Top 10 — most gifts, then fastest time
+    const { data: top, error } = await sb
+      .from('game_results')
+      .select('name, gifts, time_sec')
+      .order('gifts', { ascending: false })
+      .order('time_sec', { ascending: true })
+      .limit(10);
+
+    if (error) { console.warn('Supabase error:', error.message); return; }
+
+    // Stats
+    const { data: allRows } = await sb
+      .from('game_results')
+      .select('gifts');
+
+    const total    = allRows?.length || 0;
+    const topScore = top?.[0]?.gifts ?? null;
+    const avgGifts = total ? (allRows.reduce((s, r) => s + r.gifts, 0) / total).toFixed(1) : null;
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-top').textContent   = topScore !== null ? `${topScore} 🎁` : '—';
+    document.getElementById('stat-avg').textContent   = avgGifts ? `${avgGifts} 🎁` : '—';
+
+    renderRows(top || []);
+  } catch (e) {
+    console.warn('Could not fetch leaderboard:', e);
+  }
+}
+
+function renderRows(top) {
+  const tbody = document.getElementById('lb-body');
+  if (!top.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><span>🎁</span>Waiting for players…</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  top.forEach((r, i) => {
+    const rank   = i + 1;
+    const isTop3 = rank <= 3;
+    const pct    = Math.round((r.gifts / MAX_GIFTS) * 100);
+
+    const tr = document.createElement('tr');
+    tr.className = 'lb-row';
+    tr.style.animationDelay = `${i * 60}ms`;
+    tr.innerHTML = `
+      <td class="rank-cell">
+        <span class="rank-badge rank-${rank <= 3 ? rank : 'other'}">${medals[i] || rank}</span>
+      </td>
+      <td class="name-cell ${isTop3 ? 'top3-name' : ''}">${esc(r.name)}</td>
+      <td class="gifts-cell">
+        <div class="gift-count">${r.gifts} / ${MAX_GIFTS} 🎁</div>
+        <div class="gift-bar-bg"><div class="gift-bar-fill" style="width:${pct}%"></div></div>
+      </td>
+      <td class="time-cell"><strong>${r.time_sec}s</strong><br>time used</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Kick off
+fetchLeaderboard();
+setInterval(fetchLeaderboard, 3000);
+</script>
+</body>
+</html>
